@@ -153,6 +153,7 @@ function createPluginRuntime() {
     if (!serpent || typeof serpent !== 'object') throw new TypeError('setup(context) 需要 context.serpent。');
     lifecycleSignal = context.signal;
     serpent.commands.register('rename-selected', runRenameCommand);
+    serpent.commands.register('rename-selected-en', runRenameCommand);
     if (typeof lifecycleSignal?.addEventListener === 'function') {
       const onAbort = () => { void dispose('instance-aborted'); };
       lifecycleSignal.addEventListener('abort', onAbort, { once: true });

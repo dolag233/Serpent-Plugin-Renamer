@@ -50,6 +50,8 @@ test('opens a preview for selected assets and submits changed base names', async
     signal: new AbortController().signal,
     subscriptions: { add() {} },
   });
+  assert.equal(typeof commands.get('rename-selected'), 'function');
+  assert.equal(commands.get('rename-selected-en'), commands.get('rename-selected'));
   await commands.get('rename-selected')({
     invocation: {
       libraryId: 'library-1',

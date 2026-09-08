@@ -38,14 +38,19 @@
       {
         "id": "rename-selected",
         "title": "批量重命名",
-        "when": "selection.assetCount == selection.count && selection.assetCount != 0",
+        "when": "app.locale != 'en' && selection.assetCount == selection.count && selection.assetCount != 0",
+        "enablement": "library.writable && selection.hasDeleted == false && selection.hasUnavailable == false"
+      },
+      {
+        "id": "rename-selected-en",
+        "title": "Batch Rename",
+        "when": "app.locale == 'en' && selection.assetCount == selection.count && selection.assetCount != 0",
         "enablement": "library.writable && selection.hasDeleted == false && selection.hasUnavailable == false"
       }
     ],
     "menus": {
       "asset": [
         {
-          "id": "rename-selected-zh",
           "title": "批量重命名",
           "command": "rename-selected",
           "icon": "edit",
@@ -54,9 +59,8 @@
           "enablement": "library.writable && selection.hasDeleted == false && selection.hasUnavailable == false"
         },
         {
-          "id": "rename-selected-en",
           "title": "Batch Rename",
-          "command": "rename-selected",
+          "command": "rename-selected-en",
           "icon": "edit",
           "after": "asset.rename",
           "when": "app.locale == 'en' && selection.assetCount == selection.count && selection.assetCount != 0",
