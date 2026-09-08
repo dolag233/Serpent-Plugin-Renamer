@@ -1,0 +1,16 @@
+{
+  "name": "serpent-plugin-renamer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Preview and batch-rename selected assets in Serpent.",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "check": "node --check entry/main.js && node --check src/plugin.js && node --check src/dialog-ui.js && node --check src/name-transform.js && node --check scripts/package-release.mjs && node --check scripts/posix-zip.js",
+    "package:release": "node scripts/package-release.mjs"
+  }
+}

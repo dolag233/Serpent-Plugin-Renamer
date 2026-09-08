@@ -1,0 +1,68 @@
+{
+  "manifestVersion": 1,
+  "id": "com.dolag.serpent.renamer",
+  "version": "0.1.0",
+  "name": "Batch Renamer",
+  "description": "Preview and batch-rename selected assets.",
+  "locales": {
+    "zh-CN": {
+      "name": "批量重命名",
+      "description": "预览并批量重命名选中的资产"
+    },
+    "en": {
+      "name": "Batch Renamer",
+      "description": "Preview and batch-rename selected assets."
+    }
+  },
+  "author": "Dolag",
+  "license": "MIT",
+  "repository": "https://github.com/dolag233/Serpent-Plugin-Renamer",
+  "engines": {
+    "serpent": ">=0.2.0 <1.0.0",
+    "pluginApi": 1
+  },
+  "runtime": {
+    "mode": "unrestricted",
+    "entry": "entry/main.js",
+    "instanceScope": "global"
+  },
+  "permissions": [
+    "asset.read",
+    "file.rename",
+    "library.read",
+    "ui.dialogs",
+    "ui.notify"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "rename-selected",
+        "title": "批量重命名",
+        "when": "selection.assetCount == selection.count && selection.assetCount != 0",
+        "enablement": "library.writable && selection.hasDeleted == false && selection.hasUnavailable == false"
+      }
+    ],
+    "menus": {
+      "asset": [
+        {
+          "title": "批量重命名",
+          "command": "rename-selected",
+          "group": "file-tools",
+          "when": "selection.assetCount == selection.count && selection.assetCount != 0",
+          "enablement": "library.writable && selection.hasDeleted == false && selection.hasUnavailable == false"
+        }
+      ]
+    },
+    "toolbar": [],
+    "inspector": [],
+    "viewerActions": [],
+    "shortcuts": [],
+    "views": [],
+    "settings": [],
+    "hooks": [],
+    "jobs": [],
+    "providers": [],
+    "themes": [],
+    "dialogs": []
+  }
+}
