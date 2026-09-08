@@ -54,3 +54,29 @@ test('marks duplicate proposed names without changing the source summaries', () 
   assert.equal(duplicate[0].duplicate, true);
   assert.equal(duplicate[1].duplicate, true);
 });
+
+test('supports case and regular-expression toggles with preview highlights', () => {
+  const literal = previewRename({ id: 'asset-1', name: 'Shot_01.PNG' }, {
+    replacementPattern: 'shot',
+    replacementText: 'Take',
+    replacementCaseSensitive: false,
+  });
+  assert.equal(literal.after, 'Take_01.PNG');
+  assert.deepEqual(literal.beforeSegments, [
+    { text: 'Shot', tone: 'match' },
+    { text: '_01.PNG' },
+  ]);
+  assert.deepEqual(literal.afterSegments, [
+    { text: 'Take', tone: 'change' },
+    { text: '_01.PNG' },
+  ]);
+
+  const regex = previewRename({ id: 'asset-2', name: 'shot-01.exr' }, {
+    replacementPattern: '(shot)-(\\d+)',
+    replacementText: '$1-final-$2',
+    replacementRegex: true,
+  });
+  assert.equal(regex.after, 'shot-final-01.exr');
+  assert.equal(regex.beforeSegments[0].tone, 'match');
+  assert.equal(regex.afterSegments[0].tone, 'change');
+});

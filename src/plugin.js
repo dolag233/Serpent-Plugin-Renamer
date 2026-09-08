@@ -2,6 +2,7 @@
 
 const { renderRenameDialog, optionsFromWidgetValues } = require('./dialog-ui');
 const { buildRenamePreview, splitFileName } = require('./name-transform');
+const { getCopy } = require('./copy');
 
 const PLUGIN_ID = 'com.dolag.serpent.renamer';
 
@@ -40,7 +41,7 @@ function resolveCommandTargets(context) {
   const assets = Array.isArray(invocation?.selection?.assets)
     ? invocation.selection.assets.map(normalizeAssetSummary).filter(Boolean)
     : [];
-  return { targetLibraryId, assetIds, assets };
+  return { targetLibraryId, assetIds, assets, locale: invocation?.app?.locale ?? context?.locale ?? 'zh-CN' };
 }
 
 function normalizeListedAssets(result) {
@@ -74,13 +75,14 @@ function createPluginRuntime() {
 
   async function runRenameCommand(context) {
     const targets = resolveCommandTargets(context);
-    if (targets.targetLibraryId.length === 0) throw new Error('未找到目标资源库。');
+    const copy = getCopy(targets.locale);
+    if (targets.targetLibraryId.length === 0) throw new Error(copy.targetMissing);
     if (targets.assetIds.length === 0) {
-      await notifyUser(serpent, { severity: 'warning', title: '批量重命名', message: '请先选择要重命名的资产。' });
+      await notifyUser(serpent, { severity: 'warning', title: copy.title, message: copy.chooseAssets });
       return;
     }
     if (typeof serpent?.ui?.openDialog !== 'function') {
-      throw new Error('当前 Serpent 未提供对话框接口。');
+      throw new Error(copy.dialogsUnavailable);
     }
 
     const scoped = serpent.forLibrary(targets.targetLibraryId);
@@ -103,10 +105,10 @@ function createPluginRuntime() {
       displayName: assetId,
     });
     const rawResult = await serpent.ui.openDialog({
-      title: '批量重命名',
-      submitLabel: '应用重命名',
+      title: copy.title,
+      submitLabel: copy.apply,
       render(ui) {
-        return renderRenameDialog(ui, assets);
+        return renderRenameDialog(ui, assets, targets.locale);
       },
     });
     const values = unwrapDialogResult(rawResult);
@@ -117,8 +119,8 @@ function createPluginRuntime() {
     if (invalid !== undefined) {
       await notifyUser(scoped, {
         severity: 'warning',
-        title: '批量重命名',
-        message: `无法应用重命名：${invalid.invalidReason}`,
+        title: copy.title,
+        message: copy.invalid(invalid.invalidReason),
       });
       return;
     }
@@ -129,17 +131,17 @@ function createPluginRuntime() {
         newBaseName: splitFileName(preview.after).baseName,
       }));
     if (items.length === 0) {
-      await notifyUser(scoped, { severity: 'info', title: '批量重命名', message: '没有需要重命名的资产。' });
+      await notifyUser(scoped, { severity: 'info', title: copy.title, message: copy.noChanges });
       return;
     }
     const result = normalizeRenameResult(await scoped.assets.renameFiles(items));
     const skipped = result.skipped.length;
     await notifyUser(scoped, {
       severity: skipped > 0 ? 'warning' : 'info',
-      title: '批量重命名',
+      title: copy.title,
       message: skipped > 0
-        ? `${result.renamedCount} 个资产已重命名，${skipped} 个因冲突或文件名无效而跳过。`
-        : `${result.renamedCount} 个资产已重命名。`,
+        ? copy.completedWithSkipped(result.renamedCount, skipped)
+        : copy.completed(result.renamedCount),
     });
     return result;
   }

@@ -10,33 +10,112 @@ function splitFileName(fileName) {
 function compileRenamePattern(pattern, flags = 'g') {
   const source = String(pattern ?? '');
   if (source.length === 0) return null;
-  const normalizedFlags = String(flags ?? 'g');
-  return new RegExp(source, normalizedFlags);
+  return new RegExp(source, String(flags ?? 'g'));
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function mergeSegments(segments) {
+  const merged = [];
+  for (const segment of segments) {
+    if (!segment || segment.text.length === 0) continue;
+    const previous = merged.at(-1);
+    if (previous && previous.tone === segment.tone) previous.text += segment.text;
+    else merged.push({ text: segment.text, ...(segment.tone ? { tone: segment.tone } : {}) });
+  }
+  return merged.length > 0 ? merged : [{ text: '' }];
+}
+
+function appendExtension(segments, extension) {
+  return mergeSegments([...segments, { text: extension }]);
+}
+
+function expandedReplacement(template, match) {
+  const source = String(template ?? '');
+  return source.replace(/\$(\$|&|`|'|[0-9]{1,2})/g, (_token, key) => {
+    if (key === '$') return '$';
+    if (key === '&') return match[0];
+    if (key === '`') return match.input.slice(0, match.index);
+    if (key === "'") return match.input.slice(match.index + match[0].length);
+    const group = Number(key);
+    return Number.isInteger(group) && group < match.length && match[group] !== undefined
+      ? match[group]
+      : '';
+  });
+}
+
+function regexForReplace(isRegex, source, caseSensitive) {
+  return compileRenamePattern(isRegex ? source : escapeRegExp(source), `g${caseSensitive ? '' : 'i'}`);
+}
+
+function applyRegexOperation(baseName, pattern, replacement, caseSensitive, isRegex) {
+  const source = String(pattern ?? '');
+  if (source.length === 0) {
+    return { value: baseName, beforeSegments: [{ text: baseName }], afterSegments: [{ text: baseName }] };
+  }
+  const regex = regexForReplace(isRegex, source, caseSensitive);
+  const beforeSegments = [];
+  const afterSegments = [];
+  let cursor = 0;
+  let match;
+  while ((match = regex.exec(baseName)) !== null) {
+    const start = match.index;
+    const end = start + match[0].length;
+    beforeSegments.push({ text: baseName.slice(cursor, start) }, { text: match[0], tone: 'match' });
+    afterSegments.push(
+      { text: baseName.slice(cursor, start) },
+      { text: isRegex ? expandedReplacement(replacement, match) : String(replacement), tone: 'change' },
+    );
+    cursor = end;
+    if (match[0].length === 0) regex.lastIndex += 1;
+  }
+  beforeSegments.push({ text: baseName.slice(cursor) });
+  afterSegments.push({ text: baseName.slice(cursor) });
+  return {
+    value: baseName.replace(
+      regexForReplace(isRegex, source, caseSensitive),
+      isRegex ? replacement : () => String(replacement),
+    ),
+    beforeSegments: mergeSegments(beforeSegments),
+    afterSegments: mergeSegments(afterSegments),
+  };
 }
 
 function transformFileName(fileName, options = {}) {
   const { baseName, extension } = splitFileName(fileName);
-  const keyword = String(options.keyword ?? '');
-  const keywordReplacement = String(options.keywordReplacement ?? options.replacement ?? '');
-  const pattern = String(options.regexPattern ?? '');
-  const regexFlags = String(options.regexFlags ?? 'g');
-  const regexReplacement = String(options.regexReplacement ?? options.replacement ?? '');
   const prefix = String(options.prefix ?? '');
   const suffix = String(options.suffix ?? '');
-  let next = baseName;
-  let regex = null;
-
-  if (keyword.length > 0) next = next.split(keyword).join(keywordReplacement);
-  if (pattern.length > 0) {
-    regex = compileRenamePattern(pattern, regexFlags);
-    next = next.replace(regex, regexReplacement);
-  }
-  next = `${prefix}${next}${suffix}`;
+  const replacementPattern = String(options.replacementPattern ?? options.keyword ?? options.regexPattern ?? '');
+  const replacementText = String(options.replacementText
+    ?? options.keywordReplacement
+    ?? options.regexReplacement
+    ?? options.replacement
+    ?? '');
+  const legacyRegex = String(options.regexPattern ?? '') !== '' && options.replacementPattern === undefined;
+  const replacementRegex = options.replacementRegex === true || legacyRegex;
+  const replacementCaseSensitive = options.replacementCaseSensitive !== false;
+  const operation = applyRegexOperation(
+    baseName,
+    replacementPattern,
+    replacementText,
+    replacementCaseSensitive,
+    replacementRegex,
+  );
+  const nextBaseName = `${prefix}${operation.value}${suffix}`;
+  const afterSegments = mergeSegments([
+    { text: prefix, tone: prefix.length > 0 ? 'change' : undefined },
+    ...operation.afterSegments,
+    { text: suffix, tone: suffix.length > 0 ? 'change' : undefined },
+  ]);
   return {
-    fileName: `${next}${extension}`,
-    baseName: next,
+    fileName: `${nextBaseName}${extension}`,
+    baseName: nextBaseName,
     extension,
-    regex,
+    regex: replacementPattern.length > 0 ? regexForReplace(replacementRegex, replacementPattern, replacementCaseSensitive) : null,
+    beforeSegments: appendExtension(operation.beforeSegments, extension),
+    afterSegments: appendExtension(afterSegments, extension),
   };
 }
 
@@ -57,6 +136,8 @@ function previewRename(asset, options = {}) {
       assetId,
       before,
       after: transformed.fileName,
+      beforeSegments: transformed.beforeSegments,
+      afterSegments: transformed.afterSegments,
       changed: transformed.fileName !== before,
       invalidReason,
     };
@@ -65,6 +146,8 @@ function previewRename(asset, options = {}) {
       assetId,
       before,
       after: before,
+      beforeSegments: [{ text: before }],
+      afterSegments: [{ text: before }],
       changed: false,
       invalidReason: error instanceof Error ? error.message : String(error),
     };
