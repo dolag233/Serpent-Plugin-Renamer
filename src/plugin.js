@@ -104,16 +104,25 @@ function createPluginRuntime() {
       assetId,
       displayName: assetId,
     });
+    let renderedOptions = null;
     const rawResult = await serpent.ui.openDialog({
       title: copy.title,
       submitLabel: copy.apply,
       render(ui) {
-        return renderRenameDialog(ui, assets, targets.locale);
+        return renderRenameDialog(ui, assets, targets.locale, (options) => {
+          renderedOptions = options;
+        });
       },
     });
     const values = unwrapDialogResult(rawResult);
     if (values === null) return;
-    const options = optionsFromWidgetValues(values);
+    // The widget tree intentionally hides advanced numbering controls while
+    // numbering is disabled. Keep the latest plugin state as the base so a
+    // later re-enable or submit cannot silently discard those values.
+    const options = optionsFromWidgetValues({
+      ...(renderedOptions ?? {}),
+      ...values,
+    });
     const previews = buildRenamePreview(assets, options);
     const invalid = previews.find((preview) => preview.invalidReason !== null);
     if (invalid !== undefined) {

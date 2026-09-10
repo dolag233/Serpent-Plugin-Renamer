@@ -22,15 +22,21 @@ test('opens a preview for selected assets and submits changed base names', async
             state(initial) { let value = initial; return { get: () => value, set: (next) => { value = next; } }; },
             column(...children) { return { type: 'column', children }; },
             row(...children) { return { type: 'row', children }; },
+            group(title, ...children) { return { type: 'group', title, children }; },
+            tabs(spec) { return { type: 'tabs', ...spec }; },
             note(text) { return { type: 'note', text }; },
             heading(text) { return { type: 'heading', text }; },
             separator() { return { type: 'separator' }; },
             text(spec) { return { type: 'text', ...spec }; },
+            number(spec) { return { type: 'number', ...spec }; },
+            select(spec) { return { type: 'select', ...spec }; },
+            switch(spec) { return { type: 'switch', ...spec }; },
             toggle(spec) { return { type: 'toggle', ...spec }; },
             list(spec) { return { type: 'list', ...spec }; },
           };
           const tree = render(ui);
-          assert.equal(tree.children.find((child) => child.type === 'list').rows.length, 2);
+          const previewGroup = tree.children.find((child) => child.type === 'group' && child.title === 'Name preview');
+          assert.equal(previewGroup.children.find((child) => child.type === 'list').rows.length, 2);
           return { prefix: 'draft-', suffix: '', replacementPattern: '', replacementText: '', replacementCaseSensitive: true, replacementRegex: false };
         },
         async notify(input) { notifications.push(input); },
@@ -98,5 +104,60 @@ test('does not call the Host when all names stay unchanged', async () => {
     invocation: { selection: { assetIds: ['asset-1'], assets: [{ id: 'asset-1', name: 'one.png' }] } },
   });
   assert.equal(renameCalled, false);
+  await runtime.dispose();
+});
+
+test('submits selected numbering direction and position from widget values', async () => {
+  const commands = new Map();
+  let renameItems = null;
+  const runtime = createPluginRuntime();
+  await runtime.setup({
+    serpent: {
+      commands: { register(id, handler) { commands.set(id, handler); } },
+      ui: {
+        async openDialog() {
+          return {
+            numberingEnabled: true,
+            numberingStart: 1,
+            numberingWidth: 2,
+            numberingFormat: 'padded',
+            numberingDirectionForward: false,
+            numberingDirectionReverse: true,
+            numberingPositionPrefix: false,
+            numberingPositionSuffix: true,
+            numberingSeparator: 'none',
+          };
+        },
+        async notify() {},
+      },
+      forLibrary() {
+        return {
+          assets: {
+            async renameFiles(items) {
+              renameItems = items;
+              return { renamedCount: items.length, skipped: [] };
+            },
+          },
+          ui: { async notify() {} },
+        };
+      },
+    },
+    signal: new AbortController().signal,
+    subscriptions: { add() {} },
+  });
+  await commands.get('rename-selected')({
+    targetLibraryId: 'library-1',
+    assetIds: ['asset-1', 'asset-2'],
+    invocation: {
+      selection: {
+        assetIds: ['asset-1', 'asset-2'],
+        assets: [{ id: 'asset-1', name: 'one.png' }, { id: 'asset-2', name: 'two.png' }],
+      },
+    },
+  });
+  assert.deepEqual(renameItems, [
+    { assetId: 'asset-1', newBaseName: 'one02' },
+    { assetId: 'asset-2', newBaseName: 'two01' },
+  ]);
   await runtime.dispose();
 });

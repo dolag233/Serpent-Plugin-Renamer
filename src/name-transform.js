@@ -83,7 +83,32 @@ function applyRegexOperation(baseName, pattern, replacement, caseSensitive, isRe
   };
 }
 
-function transformFileName(fileName, options = {}) {
+function numberingToken(options, sequence = {}) {
+  if (options.numberingEnabled !== true) return '';
+  const total = Math.max(1, Number.isFinite(sequence.total) ? Math.floor(sequence.total) : 1);
+  const index = Math.max(0, Number.isFinite(sequence.index) ? Math.floor(sequence.index) : 0);
+  const start = Number.isFinite(Number(options.numberingStart)) ? Math.floor(Number(options.numberingStart)) : 1;
+  const direction = options.numberingDirection === 'reverse' ? 'reverse' : 'forward';
+  const value = direction === 'reverse' ? start + total - index - 1 : start + index;
+  const format = String(options.numberingFormat ?? 'plain').toLowerCase();
+  const width = format === 'padded' || format === 'fixed'
+    ? Math.max(0, Math.min(64, Number.isFinite(Number(options.numberingWidth))
+    ? Math.floor(Number(options.numberingWidth))
+    : 0))
+    : 0;
+  const digits = String(value).padStart(width, '0');
+  const formatted = format === 'parenthesized' || format === 'paren' || format === '()'
+    ? `(${digits})`
+    : digits;
+  const raw = `${String(options.numberingPrefix ?? '')}${formatted}${String(options.numberingSuffix ?? '')}`;
+  const separator = String(options.numberingSeparator ?? 'none');
+  const before = separator === 'before' || separator === 'both' ? '_' : '';
+  const after = separator === 'after' || separator === 'both' ? '_' : '';
+  const token = `${before}${raw}${after}`;
+  return token;
+}
+
+function transformFileName(fileName, options = {}, sequence = {}) {
   const { baseName, extension } = splitFileName(fileName);
   const prefix = String(options.prefix ?? '');
   const suffix = String(options.suffix ?? '');
@@ -103,11 +128,17 @@ function transformFileName(fileName, options = {}) {
     replacementCaseSensitive,
     replacementRegex,
   );
-  const nextBaseName = `${prefix}${operation.value}${suffix}`;
+  const number = numberingToken(options, sequence);
+  const numberedName = options.numberingPosition === 'suffix'
+    ? `${prefix}${operation.value}${suffix}${number}`
+    : `${number}${prefix}${operation.value}${suffix}`;
+  const nextBaseName = numberedName;
   const afterSegments = mergeSegments([
+    ...(options.numberingPosition === 'suffix' ? [] : [{ text: number, tone: number.length > 0 ? 'change' : undefined }]),
     { text: prefix, tone: prefix.length > 0 ? 'change' : undefined },
     ...operation.afterSegments,
     { text: suffix, tone: suffix.length > 0 ? 'change' : undefined },
+    ...(options.numberingPosition === 'suffix' ? [{ text: number, tone: number.length > 0 ? 'change' : undefined }] : []),
   ]);
   return {
     fileName: `${nextBaseName}${extension}`,
@@ -126,11 +157,11 @@ function validateFileName(fileName) {
   return null;
 }
 
-function previewRename(asset, options = {}) {
+function previewRename(asset, options = {}, sequence = {}) {
   const assetId = String(asset?.assetId ?? asset?.id ?? '');
   const before = String(asset?.displayName ?? asset?.name ?? assetId);
   try {
-    const transformed = transformFileName(before, options);
+    const transformed = transformFileName(before, options, sequence);
     const invalidReason = validateFileName(transformed.fileName);
     return {
       assetId,
@@ -155,7 +186,8 @@ function previewRename(asset, options = {}) {
 }
 
 function buildRenamePreview(assets, options = {}) {
-  const previews = (Array.isArray(assets) ? assets : []).map((asset) => previewRename(asset, options));
+  const list = Array.isArray(assets) ? assets : [];
+  const previews = list.map((asset, index) => previewRename(asset, options, { index, total: list.length }));
   const names = new Map();
   for (const preview of previews) {
     if (!preview.changed || preview.invalidReason !== null) continue;
@@ -178,6 +210,7 @@ function buildRenamePreview(assets, options = {}) {
 module.exports = {
   buildRenamePreview,
   compileRenamePattern,
+  numberingToken,
   previewRename,
   splitFileName,
   transformFileName,

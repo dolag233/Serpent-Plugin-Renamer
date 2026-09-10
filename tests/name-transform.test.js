@@ -80,3 +80,37 @@ test('supports case and regular-expression toggles with preview highlights', () 
   assert.equal(regex.beforeSegments[0].tone, 'match');
   assert.equal(regex.afterSegments[0].tone, 'change');
 });
+
+test('numbers selected assets with fixed width, affixes, and forward or reverse order', () => {
+  const options = {
+    numberingEnabled: true,
+    numberingStart: 1,
+    numberingWidth: 3,
+    numberingFormat: 'padded',
+    numberingPrefix: '[',
+    numberingSuffix: '] ',
+    numberingSeparator: 'none',
+  };
+  const forward = buildRenamePreview([
+    { id: 'asset-1', name: 'one.png' },
+    { id: 'asset-2', name: 'two.png' },
+  ], options);
+  assert.deepEqual(forward.map((item) => item.after), ['[001] one.png', '[002] two.png']);
+  assert.equal(forward[0].afterSegments[0].tone, 'change');
+
+  const reverse = buildRenamePreview([
+    { id: 'asset-1', name: 'one.png' },
+    { id: 'asset-2', name: 'two.png' },
+    { id: 'asset-3', name: 'three.png' },
+  ], { ...options, numberingFormat: 'parenthesized', numberingDirection: 'reverse', numberingStart: 4 });
+  assert.deepEqual(reverse.map((item) => item.after), ['[(6)] one.png', '[(5)] two.png', '[(4)] three.png']);
+
+  assert.equal(transformFileName('one.png', {
+    numberingEnabled: true,
+    numberingStart: 7,
+    numberingWidth: 4,
+    numberingFormat: 'plain',
+    numberingPosition: 'suffix',
+    numberingSeparator: 'both',
+  }, { index: 0, total: 1 }).fileName, 'one_7_.png');
+});
