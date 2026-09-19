@@ -205,7 +205,6 @@ function renderRenameDialog(ui, assets, locale = 'zh-CN', onRenderOptions) {
     }),
   );
   return ui.column(
-    ...notes,
     ui.group(
       copy.parameters,
       ui.tabs({
@@ -220,6 +219,7 @@ function renderRenameDialog(ui, assets, locale = 'zh-CN', onRenderOptions) {
       }),
     ),
     previewPanel,
+    ...notes,
   );
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "serpent-plugin-renamer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Preview and batch-rename selected assets in Serpent.",
   "license": "MIT",

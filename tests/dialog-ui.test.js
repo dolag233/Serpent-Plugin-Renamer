@@ -60,6 +60,35 @@ test('renders tabs, a plain control column, and a two-column preview list', () =
   assert.equal(tabs.tabs[2].children[0].type, 'column');
 });
 
+test('keeps status notes below the form so live preview updates do not reshuffle inputs', () => {
+  const ui = createFakeUi();
+  const tree = renderRenameDialog(ui, [
+    { id: 'asset-1', name: 'shot.png' },
+    { id: 'asset-2', name: 'shot.png' },
+  ]);
+  assert.deepEqual(tree.children.map((child) => child?.type), ['group', 'group', 'note']);
+  assert.equal(tree.children[0].title, '命名参数');
+  assert.equal(tree.children[1].title, '命名预览');
+  assert.match(tree.children[2].text, /已选 2 个资产/);
+
+  const prefixField = findTabs(tree).tabs[0].children[0].children[0].children
+    .find((child) => child?.id === 'prefix');
+  prefixField.onChange('copy-');
+  ui.reset();
+  const withDuplicates = renderRenameDialog(ui, [
+    { id: 'asset-1', name: 'shot.png' },
+    { id: 'asset-2', name: 'shot.png' },
+  ]);
+  assert.deepEqual(
+    withDuplicates.children.map((child) => child?.type),
+    ['group', 'group', 'note', 'note'],
+  );
+  assert.equal(withDuplicates.children[0].title, '命名参数');
+  assert.equal(withDuplicates.children[1].title, '命名预览');
+  assert.match(withDuplicates.children[2].text, /将重命名 2 个/);
+  assert.match(withDuplicates.children[3].text, /新文件名重复/);
+});
+
 test('normalizes submitted widget values', () => {
   assert.deepEqual(optionsFromWidgetValues({ prefix: 'x-', keyword: 'old' }), {
     prefix: 'x-',
